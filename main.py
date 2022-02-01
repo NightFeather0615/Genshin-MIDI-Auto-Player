@@ -23,8 +23,8 @@ note_range = {
   "C9": [144, 155]
 }
 
-file = input("File location: ")
-mid = mido.MidiFile(file)
+file = input("[USER INPUT] File location: ")
+mid = mido.MidiFile(file.replace('"', ''))
 
 def check_note_range():
   notes = []
@@ -44,7 +44,16 @@ def check_song_play_time():
     action = action.dict()
     if action['type'] in ['note_on', 'note_off']:
       play_time += action['time']
-  return time.strftime('%M:%S', time.gmtime(round(play_time)))
+  return time.strftime('%M m %S s', time.gmtime(round(play_time)))
+
+def check_note_status(current_note):
+  unplayable = 0
+  for action in mid:
+    action = action.dict()
+    if action['type'] == 'note_on':
+      if not action['note'] in current_note:
+        unplayable += 1
+  return unplayable
 
 def shift_note_range(base):
   current_note = {}
@@ -57,13 +66,19 @@ def shift_note_range(base):
 
 base_note = check_note_range()
 current_note = shift_note_range(base_note)
-print(f"Estimated play time: {check_song_play_time()}")
+unplayable = check_note_status(current_note)
+if unplayable != 0:
+  print(f"[WARN] This song contain {unplayable} unplayable note(s)")
+print(f"[LOG] Estimated play time: {check_song_play_time()}")
 for i in range(3, 0, -1):
-  print(f"Play song in {i}...")
+  print(f"[LOG] Play song in {i}...")
   time.sleep(1)
-print(f"Playing...")
-for msg in mid.play():
-  msg = msg.dict()
-  if msg['type'] == 'note_on':
-    pydirectinput.press(current_note[msg['note']])
-print(f"Song ended.")
+print(f"[LOG] Playing...")
+for action in mid.play():
+  action = action.dict()
+  if action['type'] == 'note_on':
+    if action['note'] in current_note:
+      pydirectinput.press(current_note[action['note']])
+    else:
+      print(f"[LOG] Skipped note {action['note']}")
+print(f"[LOG] Song ended")
